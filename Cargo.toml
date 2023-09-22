@@ -1,0 +1,17 @@
+[package]
+name = "remarko"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chrono = "0.4.31"
+clap = "4.4.4"
+colored = "2.0.4"
+dirs = "5.0.1"
+openssh = "0.10.0"
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = "1.0.107"
+ssh2 = "0.9.4"
+ssh2-config = "0.2.2"
