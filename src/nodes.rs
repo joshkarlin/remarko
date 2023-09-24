@@ -191,6 +191,33 @@ impl File {
         let utc_datetime: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive_datetime, Utc);
         utc_datetime.format("%Y-%m-%d %H:%M:%S").to_string()
     }
+
+    /// if file_name ends with ".pdf or .epub", remove that
+    pub fn get_file_stem(&self) -> String {
+        let file_name = self.get_visible_name();
+        if file_name.ends_with(".pdf") || file_name.ends_with(".epub") {
+            let split_file_name = file_name.split(".").collect::<Vec<&str>>();
+            split_file_name[..split_file_name.len() - 1].join(".")
+        } else {
+            file_name.to_string()
+        }
+    }
+}
+
+impl Metadata {
+    pub fn new(
+        visible_name: String,
+        parent: Option<String>,
+        last_modified: String,
+        type_: String,
+    ) -> Metadata {
+        Metadata {
+            visible_name,
+            parent,
+            last_modified,
+            type_,
+        }
+    }
 }
 
 impl Directory {

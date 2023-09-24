@@ -90,10 +90,17 @@ To list the files on your remarkble:
 cargo run list
 ```
 
+To show the diff between a local directory and your remarkable:
+
+```bash
+cargo run diff <local-directory>
+```
+
 ## TODO
 
 - [x] Add a `list` command to list files on the remarkable
-- [ ] Add a `backup` command to backup files from the remarkable to the local machine with and without parsing dirs
-- [ ] Add a `diff` command to compare files on the remarkable with local files
-- [ ] Add a `sync` command to sync files from the local machine with the remarkable
+- [x] Add a `diff` command to compare files on the remarkable with local files
+- [ ] Add a `pull` command to pull missing files from the remarkable to a directory on the local machine
+- [ ] Extend `pull` with a flag to blindly pull everything
+- [ ] Add a `push` command to push missing files from a directory on the local machine to the remarkable
 - [ ] Combine files with annotations into a single pdf and pull to local machine

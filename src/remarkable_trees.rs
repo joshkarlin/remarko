@@ -2,8 +2,8 @@ use colored::*;
 use ssh2::Session;
 
 use crate::constants::{COLLECTION, DIR, DOCUMENT};
-use crate::nodes::{Directory, DirectoryNode, File, Hash, Node, SystemDirectory};
-use crate::ssh_utils::read_remote_json_file;
+use crate::nodes::{Directory, DirectoryNode, File, Hash, Metadata, Node, SystemDirectory};
+use crate::ssh_utils::read_remote_metadata;
 
 /// Parse the output of `ls` to get the file and directory hashes.
 /// The output of `ls` is a single string, so it needs to be trimmed
@@ -22,14 +22,14 @@ pub fn get_hashes_from_ls_output(ls_output: &str) -> Vec<&str> {
     return file_hashes;
 }
 
-pub fn build_tree(hashes: Vec<&str>, sess: &mut Session) -> (SystemDirectory, SystemDirectory) {
+pub fn build_tree(hashes: Vec<&str>, sess: &mut Session) -> (Directory, Directory) {
     let mut directories = Vec::new();
     let mut files = Vec::new();
 
     // create nodes for all files and directories
     for hash in hashes {
         let metadata_file_name = format!("{}/{}.metadata", DIR, hash);
-        let metadata = read_remote_json_file(sess, &metadata_file_name);
+        let metadata = read_remote_metadata(sess, &metadata_file_name);
 
         if metadata.type_ == DOCUMENT {
             let file = File::new(Hash::new(hash.to_string()), metadata);
@@ -43,44 +43,55 @@ pub fn build_tree(hashes: Vec<&str>, sess: &mut Session) -> (SystemDirectory, Sy
     }
 
     // manually create root and trash directories
-    let mut root_directory = SystemDirectory::new("home".to_string(), None, None);
-    let mut trash_directory = SystemDirectory::new("trash".to_string(), None, None);
+    let root_metadata = Metadata::new(
+        "home".to_string(),
+        None,
+        "420".to_string(),
+        "directory".to_string(),
+    );
+    let trash_metadata = Metadata::new(
+        "trash".to_string(),
+        None,
+        "420".to_string(),
+        "directory".to_string(),
+    );
+
+    let root_directory = Directory::new(Hash::new("".to_string()), root_metadata, None, None);
+    let trash_directory =
+        Directory::new(Hash::new("trash".to_string()), trash_metadata, None, None);
+
+    // add root_directory at start of directories
+    directories.insert(0, root_directory);
+    // add trash_directory after root_directory
+    directories.insert(1, trash_directory);
 
     // match files with parent directories
     for file in files {
         let parent_name = file.get_parent().unwrap();
-        match parent_name.as_str() {
-            "" => root_directory.add_file(file),
-            "trash" => trash_directory.add_file(file),
-            _ => {
-                // TODO improve this
-                let parent = directories
-                    .iter_mut()
-                    .find(|d| d.get_hash().to_string() == parent_name.to_string())
-                    .unwrap();
-                parent.add_file(file);
-            }
-        }
+        // TODO improve this
+        let parent = directories
+            .iter_mut()
+            .find(|d| d.get_hash().to_string() == parent_name.to_string())
+            .unwrap();
+        parent.add_file(file);
     }
 
     // match directories with parent directories
     for directory in directories.clone() {
-        let parent_name = directory.get_parent().unwrap();
-        match parent_name.as_str() {
-            "" => root_directory.add_directory(directory.clone()),
-            "trash" => trash_directory.add_directory(directory.clone()),
-            _ => {
-                // TODO improve this
-                let parent = directories
-                    .iter_mut()
-                    .find(|d| d.get_hash().to_string() == parent_name.to_string())
-                    .unwrap();
-                parent.add_directory(directory.clone());
-            }
+        // if parent is None, continue, else find parent and add directory
+        let parent_name = directory.get_parent();
+        if parent_name.is_none() {
+            continue;
         }
+        // TODO improve this
+        let parent = directories
+            .iter_mut()
+            .find(|d| d.get_hash().to_string() == parent_name.unwrap().to_string())
+            .unwrap();
+        parent.add_directory(directory.clone());
     }
 
-    return (root_directory, trash_directory);
+    return (directories.remove(0), directories.remove(0));
 }
 
 pub fn print_tree(node: &dyn Node, depth: usize) {
@@ -116,9 +127,10 @@ pub fn print_tree(node: &dyn Node, depth: usize) {
         }
     } else if let Some(file_node) = node.as_any().downcast_ref::<File>() {
         println!(
-            "{}{} {}",
+            "{}{} {} {}",
             indent,
             file_node.get_last_modified(),
+            file_node.get_hash().to_string().bold().purple().on_blue(),
             file_node.get_visible_name().purple()
         );
     }
